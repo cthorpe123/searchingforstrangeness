@@ -333,19 +333,22 @@ void ConvolutionNetworkAlgo::prepareTrainingSample(art::Event const& evt)
     bool found_all_signatures = true;
     for (auto& signatureTool : _signatureToolsVec)
     {
-        bool found_signature = signatureTool->identifySignalParticles(evt, signature_coll);
+        signature_coll.push_back(signature::Signature());
+        bool found_signature = signatureTool->identifySignalParticles(evt, signature_coll.back());
 
         if (!found_signature) 
             found_all_signatures = false;
     }
 
     if (!found_all_signatures)
-        signature_coll.clear();
+      signature_coll.clear();
 
     for (auto& signature : signature_coll)
         std::cout << "Signature: " << signature.pdg << ", " << signature.trckid << std::endl;
 
-    unsigned int n_flags = 2; // leptonic + hadronic flags
+    //unsigned int n_flags = signature_coll.size(); // separate flag for each signature 
+    unsigned int n_flags = _signatureToolsVec.size();
+    std::cout << "n_flags=" << n_flags << std::endl;
     int run = evt.run();
     int subrun = evt.subRun();
     int event = evt.event();
@@ -365,6 +368,7 @@ void ConvolutionNetworkAlgo::prepareTrainingSample(art::Event const& evt)
         auto [drift_min, drift_max, wire_min, wire_max] = this->getBoundsForView(view);
         if (x_vtx > (drift_min - 1.f) && x_vtx < (drift_max + 1.f) && z_vtx > (wire_min - 1.f) && z_vtx < (wire_max + 1.f))
         {           
+            std::cout << "Saving info from new hit" << std::endl;
             unsigned int n_hits = 0;
             unsigned int n_meta = 0;
             std::vector<float> feat_vec = { static_cast<float>(n_hits), 
@@ -393,8 +397,9 @@ void ConvolutionNetworkAlgo::prepareTrainingSample(art::Event const& evt)
                 float z = pos.Z();
                 float q = _calo_alg->ElectronsFromADCArea(hit->Integral(), hit->WireID().Plane);
 
-                int leptonic_flag = 0;
-                int hadronic_flag = 0;
+                //int leptonic_flag = 0;
+                //int hadronic_flag = 0;
+                std::vector<float> signature_flags(n_flags,0.f);
                 if (_mcp_bkth_assoc != nullptr) 
                 {
                     const auto& assmcp = _mcp_bkth_assoc->at(hit.key());
@@ -402,29 +407,41 @@ void ConvolutionNetworkAlgo::prepareTrainingSample(art::Event const& evt)
 
                     for (unsigned int ia = 0; ia < assmcp.size(); ++ia) 
                     {
+                        // TODO: Rename this to something more descriptive
+                        bool found = false;
                         if (assmdt[ia]->isMaxIDE == 1) 
                         {
                             for (size_t it = 0; it < signature_coll.size(); ++it) 
                             {
-                                if (assmcp[ia]->TrackId() == signature_coll[it].trckid) 
+                                //if (assmcp[ia]->TrackId() == signature_coll[it].trckid) 
+                                if (std::find(signature_coll[it].trckid.begin(),signature_coll[it].trckid.end(),assmcp[ia]->TrackId()) != signature_coll[it].trckid.end()) 
                                 {
+                                  signature_flags.at(it) = 1.f;
+                                  found = true;
+                                  //std::cout << "Found signature hit, it=" << it << " trackid=" << assmcp[ia]->TrackId() << std::endl;
+                                    /*
+                                    std::cout << "it=" << it << std::endl;
                                     if (assmcp[ia]->Process() == "primary" && (abs(signature_coll[it].pdg) == 13 || abs(signature_coll[it].pdg) == 11)) {
                                         leptonic_flag = 1;
                                     } else {
                                         hadronic_flag = 1;
                                     }
-                        
+                                   */
                                     break;
                                 }
                             }
                         }
 
-                        if (leptonic_flag == 1 || hadronic_flag == 1)
+                        if (found)
                             break;
                     }
                 }
 
-                feat_vec.insert(feat_vec.end(), {x, z, q, static_cast<float>(leptonic_flag), static_cast<float>(hadronic_flag)});
+                //for(const float& flag : signature_flags) std::cout << flag << " ";
+                //std::cout << std::endl;
+                //feat_vec.insert(feat_vec.end(), {x, z, q, static_cast<float>(leptonic_flag), static_cast<float>(hadronic_flag)});
+                feat_vec.insert(feat_vec.end(), {x, z, q});
+                feat_vec.insert(feat_vec.end(),signature_flags.begin(),signature_flags.end());
                 ++n_hits;
             }
 
@@ -454,6 +471,7 @@ void ConvolutionNetworkAlgo::getNuVertex(art::Event const& evt, std::array<float
 
 void ConvolutionNetworkAlgo::produceTrainingSample(const std::string& filename, const std::vector<float>& feat_vec, bool result)
 {
+
     std::ofstream out_file(filename, std::ios_base::app);
     if (!out_file.is_open()) {
         mf::LogError("ConvolutionNetworkAlgo") << "Error: Could not open file " << filename;

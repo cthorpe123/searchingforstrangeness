@@ -26,8 +26,8 @@ namespace signature {
 
 struct Signature
 {
-    int pdg;
-    int trckid; 
+    std::vector<int> pdg;
+    std::vector<int> trckid; 
 };
 
 using SignatureCollection = std::vector<Signature>&;
@@ -57,13 +57,13 @@ public:
         _fv_z_end = pset.get<float>("fidvolZend", 50.0);
     }
 
-    bool identifySignalParticles(art::Event const& evt, SignatureCollection& sig_coll)
+    bool identifySignalParticles(art::Event const& evt, Signature& sig)
     {
         auto const& truth_handle = evt.getValidHandle<std::vector<simb::MCTruth>>(_MCTproducer);
         if (truth_handle->size() != 1) 
         {
             mf::LogWarning("Skipping this event, as it has more than one neutrino interaction.");
-            sig_coll.clear();
+            //sig_coll.clear();
             return false;
         }
 
@@ -76,15 +76,15 @@ public:
         if (!common::point_inside_fv(vertex, _fv_x_start, _fv_y_start, _fv_z_start, _fv_x_end, _fv_y_end, _fv_z_end)) 
         {
             mf::LogWarning("The neutrino interaction lies outside the fiducial volume, skipping interaction.");
-            sig_coll.clear();
+            //sig_coll.clear();
             return false;
         }
 
         bool found_signature = false;
-        this->findSignature(evt, sig_coll, found_signature);
+        this->findSignature(evt, sig, found_signature);
 
-        if (!found_signature)  
-            sig_coll.clear();
+        //if (!found_signature)  
+        //    sig_coll.clear();
 
         return found_signature;
     }
@@ -110,17 +110,13 @@ protected:
         return false;
     }
 
-    void fillSignature(const art::Ptr<simb::MCParticle>& mcp, SignatureCollection& sig_coll) 
+    void fillSignature(const art::Ptr<simb::MCParticle>& mcp, Signature& sig) 
     {
-        Signature signature;
-
-        signature.pdg = mcp->PdgCode();
-        signature.trckid = mcp->TrackId();
-
-        sig_coll.push_back(signature);
+      sig.pdg.push_back(mcp->PdgCode());
+      sig.trckid.push_back(mcp->TrackId());
     }
 
-    virtual void findSignature(art::Event const& evt, SignatureCollection& sig_coll, bool& found_signature) = 0;
+    virtual void findSignature(art::Event const& evt, Signature& sig, bool& found_signature) = 0;
 };
 
 } 

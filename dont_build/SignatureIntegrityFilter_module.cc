@@ -331,6 +331,7 @@ void SignatureIntegrityFilter::getSimulationHits(art::Event const& e, std::vecto
 bool SignatureIntegrityFilter::checkGeometricLength(const art::Event& e, const signature::SignatureCollection& sig_coll)
 {
     auto const& mcp_h = e.getValidHandle<std::vector<simb::MCParticle>>(_MCPproducer);
+     /*
     for (const auto& sig : sig_coll) 
     {
         const simb::MCParticle* mcp = nullptr;
@@ -351,6 +352,26 @@ bool SignatureIntegrityFilter::checkGeometricLength(const art::Event& e, const s
         if (length < _length_thresh)
             return false;
     }
+    */
+    
+
+    for (const auto& part : *mcp_h){
+      for (const auto& sig : sig_coll){
+        if (std::find(sig.trckid.begin(),sig.trckid.end(),part.TrackId()) != trckid.end()){
+          mcp = &part;
+          break;
+        }
+      }
+
+        if (!mcp) 
+            continue;
+
+        TVector3 start(mcp->Vx(), mcp->Vy(), mcp->Vz());
+        TVector3 end(mcp->EndX(), mcp->EndY(), mcp->EndZ());
+        double length = (end - start).Mag();
+        if (length < _length_thresh)
+            return false;
+    }
 
     return true; 
 }
@@ -358,6 +379,7 @@ bool SignatureIntegrityFilter::checkGeometricLength(const art::Event& e, const s
 bool SignatureIntegrityFilter::checkSignatureActivelyBound(const art::Event& e, const signature::SignatureCollection& sig_coll)
 {
     auto const& mcp_h = e.getValidHandle<std::vector<simb::MCParticle>>(_MCPproducer);
+    /*
     for (const auto& sig : sig_coll) 
     {
         const simb::MCParticle* mcp = nullptr;
@@ -385,6 +407,33 @@ bool SignatureIntegrityFilter::checkSignatureActivelyBound(const art::Event& e, 
             }
         }
     }
+  */
+  
+    for (const auto& part : *mcp_h){
+      for (const auto& sig : sig_coll){
+        if (std::find(sig.trckid.begin(),sig.trckid.end(),part.TrackId()) != trckid.end()){
+          mcp = &part;
+          break;
+        }
+      }
+
+      if (!mcp) 
+        continue;
+
+      TVector3 start(mcp->Vx(), mcp->Vy(), mcp->Vz());
+      double pos_start[3] = {start.X(), start.Y(), start.Z()};
+      if (!checkPositionActivelyBound(pos_start)) {
+        return false;
+      }
+
+      if (std::abs(mcp->PdgCode()) != 13) { 
+        TVector3 end(mcp->EndX(), mcp->EndY(), mcp->EndZ());
+        double pos_end[3] = {end.X(), end.Y(), end.Z()};
+        if (!checkPositionActivelyBound(pos_end)) {
+          return false;
+        }
+      }
+    }
 
     return true;
 }
@@ -406,34 +455,61 @@ bool SignatureIntegrityFilter::checkPositionActivelyBound(const double x[3])
 
 bool SignatureIntegrityFilter::checkSignatureSensitivity(const art::Event& e, const signature::SignatureCollection& sig_coll) 
 {
-    auto const& mcp_h = e.getValidHandle<std::vector<simb::MCParticle>>(_MCPproducer);
-    for (const auto& sig : sig_coll) 
-    {
-        const simb::MCParticle* mcp = nullptr;
-        for (const auto& part : *mcp_h) 
-        {
-            if (part.TrackId() == sig.trckid) {
-                mcp = &part;
-                break;
-            }
-        }
-        if (!mcp) 
-            continue;
+  auto const& mcp_h = e.getValidHandle<std::vector<simb::MCParticle>>(_MCPproducer);
+  /*
+     for (const auto& sig : sig_coll) 
+     {
+     const simb::MCParticle* mcp = nullptr;
+     for (const auto& part : *mcp_h) 
+     {
+     if (part.TrackId() == sig.trckid) {
+     mcp = &part;
+     break;
+     }
+     }
+     if (!mcp) 
+     continue;
 
-        TVector3 start(mcp->Vx(), mcp->Vy(), mcp->Vz());
-        if (!checkPositionSensitivity(start)) {
-            return false;
-        }
+     TVector3 start(mcp->Vx(), mcp->Vy(), mcp->Vz());
+     if (!checkPositionSensitivity(start)) {
+     return false;
+     }
 
-        if (std::abs(mcp->PdgCode()) != 13) { 
-            TVector3 end(mcp->EndX(), mcp->EndY(), mcp->EndZ());
-            if (!checkPositionSensitivity(end)) {
-                return false;
-            }
-        }
+     if (std::abs(mcp->PdgCode()) != 13) { 
+     TVector3 end(mcp->EndX(), mcp->EndY(), mcp->EndZ());
+     if (!checkPositionSensitivity(end)) {
+     return false;
+     }
+     }
+     }
+     */
+
+  for (const auto& part : *mcp_h){
+    for (const auto& sig : sig_coll){
+      if (std::find(sig.trckid.begin(),sig.trckid.end(),part.TrackId()) != trckid.end()){
+        mcp = &part;
+        break;
+      }
     }
 
-    return true;
+    if (!mcp) 
+      continue;
+
+    TVector3 start(mcp->Vx(), mcp->Vy(), mcp->Vz());
+    if (!checkPositionSensitivity(start)) {
+      return false;
+    }
+
+    if (std::abs(mcp->PdgCode()) != 13) { 
+      TVector3 end(mcp->EndX(), mcp->EndY(), mcp->EndZ());
+      if (!checkPositionSensitivity(end)) {
+        return false;
+      }
+    }
+
+  }
+
+  return true;
 }
 
 bool SignatureIntegrityFilter::checkPositionSensitivity(const TVector3& pos) 

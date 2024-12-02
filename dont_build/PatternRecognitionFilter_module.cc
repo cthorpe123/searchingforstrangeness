@@ -93,7 +93,8 @@ bool PatternRecognitionFilter::filter(art::Event &evt)
 
     std::vector<signature::Signature> sig_coll;
     for (auto& signatureTool : _signatureToolsVec) {
-        if (!signatureTool->identifySignalParticles(evt, sig_coll))
+        sig_coll.push_back(signature::Signature()); 
+        if (!signatureTool->identifySignalParticles(evt, sig_coll.back()))
             return false;
     }
 
@@ -114,8 +115,10 @@ bool PatternRecognitionFilter::filter(art::Event &evt)
 
             for (const auto &sig : sig_coll) 
             {
-                if (mcp->TrackId() == sig.trckid)
-                    sig_mcp_hits[sig.trckid]++;
+                //if (mcp->TrackId() == sig.trckid)
+                //  sig_mcp_hits[sig.trckid]++;
+              if(std::find(sig.trckid.begin(),sig.trckid.end(),mcp->TrackId()) != sig.trckid.end())
+                sig_mcp_hits[mcp->TrackId()]++;
             }
         }
     }
@@ -154,8 +157,12 @@ bool PatternRecognitionFilter::filter(art::Event &evt)
 
                 for (const auto &sig : sig_coll)
                 {
-                    if (assmcp[i]->TrackId() == sig.trckid)
-                        pfp_mcp_shared_hits[pfp_pxy->Self()][sig.trckid]++;
+                    //if (assmcp[i]->TrackId() == sig.trckid)
+                    //    pfp_mcp_shared_hits[pfp_pxy->Self()][sig.trckid]++;
+
+                  // TODO: Check this is still the valid way to do it
+                  if(std::find(sig.trckid.begin(),sig.trckid.end(),mcp->TrackId()) != sig.trckid.end())
+                     pfp_mcp_shared_hits[pfp_pxy->Self()][mcp->TrackId()]++;
                 }
             }
         }
@@ -163,12 +170,14 @@ bool PatternRecognitionFilter::filter(art::Event &evt)
         std::unordered_map<int, int> sig_match;
         for (const auto &sig : sig_coll) 
         {
+            for(const auto &trckid : sig.trckid){
+
             int match_pfp = -1;
             float match_score = -1.0;
 
             for (const auto &[pfp_id, mcp_hits_map] : pfp_mcp_shared_hits) 
             {
-                if (mcp_hits_map.find(sig.trckid) == mcp_hits_map.end())
+                if (mcp_hits_map.find(trckid) == mcp_hits_map.end())
                     continue;
 
                 int shared_hits = mcp_hits_map.at(sig.trckid);
@@ -187,7 +196,12 @@ bool PatternRecognitionFilter::filter(art::Event &evt)
             }
 
             if (match_pfp != -1) 
-                sig_match[sig.trckid] = match_pfp;
+                sig_match[trckid] = match_pfp;
+
+            //if (match_pfp != -1) 
+            //    sig_match[sig.trckid] = match_pfp;
+        
+            }
         }
 
         std::unordered_set<int> unique_pfps;
@@ -199,8 +213,17 @@ bool PatternRecognitionFilter::filter(art::Event &evt)
             unique_pfps.insert(pfp_id);
         }
 
-        if (sig_match.size() != sig_coll.size())
-            return false;
+        int n_trckids = 0;
+        for(const auto& sig : sig_coll)
+            for(const auto& trckid : sig.trckid)
+                n_trckids++; 
+
+         // TODO: Not sure this is correct or not, check later
+            if(sig_match.size() != n_trckids)
+                return false;
+
+        //if (sig_match.size() != sig_coll.size())
+        //    return false;
     }
 
     return true;
