@@ -83,6 +83,7 @@ KaonShortSignature:
 ChargedKaonSignature:
 {
     tool_type: "ChargedKaonSignature"
+    GrabElectron: true
     @table::Thresholds
 }
 

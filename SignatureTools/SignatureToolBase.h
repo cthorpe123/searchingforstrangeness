@@ -55,10 +55,12 @@ public:
         _fv_x_end = pset.get<float>("fidvolXend", 10.0);
         _fv_y_end = pset.get<float>("fidvolYend", 15.0);
         _fv_z_end = pset.get<float>("fidvolZend", 50.0);
+        _tool_name = pset.get<std::string>("tool_type");
     }
 
     bool identifySignalParticles(art::Event const& evt, Signature& sig)
     {
+        std::cout << "Identifying signature particles with tool " << _tool_name << std::endl;
         auto const& truth_handle = evt.getValidHandle<std::vector<simb::MCTruth>>(_MCTproducer);
         if (truth_handle->size() != 1) 
         {
@@ -96,6 +98,7 @@ protected:
 
     float _fv_x_start, _fv_y_start, _fv_z_start;
     float _fv_x_end, _fv_y_end, _fv_z_end;
+    std::string _tool_name;
 
     bool aboveThreshold(const simb::MCParticle& mcp) const 
     {

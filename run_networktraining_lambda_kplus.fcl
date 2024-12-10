@@ -1,0 +1,8 @@
+#include "run_networktraining.fcl"  
+
+physics.analyzers.convnetalgo.SignatureTools: 
+{
+    muon: @local::MuonSignature
+    lambda: @local::LambdaSignature
+    kplus: @local::ChargedKaonSignature
+}

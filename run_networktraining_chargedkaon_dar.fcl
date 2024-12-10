@@ -1,0 +1,9 @@
+#include "run_networktraining.fcl"  
+
+physics.analyzers.convnetalgo.SignatureTools: 
+{
+    leptonic: @local::MuonSignature
+    hadronic: @local::ChargedKaonSignature
+}
+
+physics.analyzers.convnetalgo.SignatureTools.hadronic.MaxEndMomentum: 0.02

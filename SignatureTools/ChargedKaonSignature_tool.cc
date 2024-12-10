@@ -12,7 +12,9 @@ class ChargedKaonSignature : public SignatureToolBase
 public:
     explicit ChargedKaonSignature(const fhicl::ParameterSet& pset)
     : _MCPproducer{pset.get<art::InputTag>("MCPproducer", "largeant")}
-    , _decay_mode{pset.get<std::string>("DecayMode", "muonic")} 
+    , _decay_mode{pset.get<std::string>("DecayMode", "muonic")}
+    , _grab_electron{pset.get<bool>("GrabElectron", false)}
+    , _max_end_momentum{pset.get<double>("MaxEndMomentum",10.0)}
     {
         configure(pset); 
     }
@@ -29,10 +31,13 @@ protected:
 private:
     art::InputTag _MCPproducer;  
     std::string _decay_mode;
+    bool _grab_electron;
+    double _max_end_momentum;
 };
 
 void ChargedKaonSignature::findSignature(art::Event const& evt, Signature& sig, bool& found_signature)
 {
+    std::cout << "_max_end_momentum=" << _max_end_momentum << std::endl;
     auto const &mcp_h = evt.getValidHandle<std::vector<simb::MCParticle>>(_MCPproducer);
 
     std::map<int, art::Ptr<simb::MCParticle>> mcp_map;
@@ -45,11 +50,11 @@ void ChargedKaonSignature::findSignature(art::Event const& evt, Signature& sig, 
     {
         int pdg_code = std::abs(mc_particle.PdgCode());
 
-        if (pdg_code == 321 && mc_particle.Process() == "primary" && (mc_particle.EndProcess() == "Decay" || mc_particle.EndProcess() == "FastScintillation")  && !found_signature) 
+        if (pdg_code == 321 && mc_particle.Process() == "primary" && (mc_particle.EndProcess() == "Decay" || mc_particle.EndProcess() == "FastScintillation") && mc_particle.EndMomentum().P() < _max_end_momentum && !found_signature) 
         {
             auto daughters = common::GetDaughters(mcp_map.at(mc_particle.TrackId()), mcp_map);
             daughters.erase(std::remove_if(daughters.begin(), daughters.end(), [](const auto& dtr) {
-                return dtr->Process() != "Decay";
+                return !(dtr->Process() == "Decay");
             }), daughters.end());
 
             for (const auto& dtr : daughters)
@@ -91,6 +96,20 @@ void ChargedKaonSignature::findSignature(art::Event const& evt, Signature& sig, 
 
                     for (const auto &dtr : daughters) 
                         this->fillSignature(dtr, sig);
+
+                    // Optional additional final particle - electron produced in muon decay
+                    if(_decay_mode == "muonic" && _grab_electron){
+                      for(const auto &dtr : daughters){
+                        if(abs(dtr->PdgCode()) == 13 && (dtr->EndProcess() == "Decay" || dtr->EndProcess() == "FastScintillation")){
+                          auto granddaughters = common::GetDaughters(mcp_map.at(dtr->TrackId()), mcp_map);
+                          granddaughters.erase(std::remove_if(granddaughters.begin(), granddaughters.end(), [](const auto& gdtr) {
+                                return gdtr->Process() != "Decay" || abs(gdtr->PdgCode()) != 11;
+                                }), granddaughters.end());
+                          for(const auto &gdtr : granddaughters) this->fillSignature(gdtr, sig);
+                        }
+                      }
+                    }
+                    
 
                     break;
                 }

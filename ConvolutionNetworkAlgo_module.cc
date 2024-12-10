@@ -340,8 +340,8 @@ void ConvolutionNetworkAlgo::prepareTrainingSample(art::Event const& evt)
             found_all_signatures = false;
     }
 
-    if (!found_all_signatures)
-      signature_coll.clear();
+    //if (!found_all_signatures)
+    //  signature_coll.clear();
 
     for (auto& signature : signature_coll)
         std::cout << "Signature: " << signature.pdg << ", " << signature.trckid << std::endl;
